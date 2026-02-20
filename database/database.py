@@ -2,6 +2,10 @@
 # Funciona como único repositorio
 # Emplea el patron de diseño creacional singleton
 
+# Importaciones
+from database.structs import OrderReq, OrderRes, Product
+
+# Clase Base de datos
 class DatabaseMetaClass(type):
     _instances = {}
     def __call__(cls, *args, **kwargs):
@@ -18,8 +22,11 @@ class Database(metaclass=DatabaseMetaClass):
 
     # Metodos no-publicos
     @staticmethod
-    def _validate_products_keys():
-        ...
+    def validate_keys(dict: Dict, req_keys:set):
+        for key, key_type in req_keys.items():
+            if (key not in dict or not isinstance(dic[key], items)):
+                return False
+        return True
     # Metodos publicos
     def get_products(self) -> list:
         return self.__products_buffer
@@ -27,7 +34,14 @@ class Database(metaclass=DatabaseMetaClass):
     def get_orders(self) -> list:
         return self.__order_buffer
     
-    def add_products(self, product:dict) -> str:
-        if (not product["id"] or not product["nombre"] or not product["precio"] or not product["categoria"]):
-            raise Exception("El formato del JSON no es el especificado")
+    def add_products(self, product:dict[Product]) -> bool:
+        keys = {"id":str, "nombre":str, "precio":float, "categoria":str}
+        json = ()
+        # En caso que el formato no sea correcto, se manda error
+        if (not validate_keys(product, keys)):
+            return False
+        
+        self.__products_buffer.append(product)
+        return True
+        
 
