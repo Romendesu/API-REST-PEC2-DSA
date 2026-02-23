@@ -1,0 +1,32 @@
+// Producto
+{
+  "id": "p1",
+  "nombre": "Laptop",
+  "precio": 1200.00,
+  "categoria": "Electrónica"
+}
+
+// Pedido (request)
+{
+  "cliente": "Ana García",
+  "tipo_cliente": "premium",
+  "metodo_pago": "paypal",
+  "items": [
+    { "producto_id": "p1", "cantidad": 2 }
+  ]
+}
+
+// Pedido (response)
+{
+  "id": "ord-001",
+  "cliente": "Ana García",
+  "tipo_cliente": "premium",
+  "estado": "PENDIENTE",
+  "items": [...],
+  "subtotal": 2400.00,
+  "descuento": 240.00,
+  "total": 2160.00,
+  "metodo_pago": "PayPal",
+  "creado_en": "2025-01-15T10:30:00"
+}
+
