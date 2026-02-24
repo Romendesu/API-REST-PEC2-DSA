@@ -16,37 +16,10 @@
 
 '''
 from datetime import datetime
+from orders.order import Order
+from orders.discount_strategy import DiscountFactory
+from utils.payment_factory import PaymentFactory
 
-class Order:
-    def __init__(self):
-        self.id: str = ""
-        self.cliente: str = ""
-        self.tipo_cliente: str = ""
-        self.estado:str = "PENDIENTE"  
-        self.items: list = list()
-        self.subtotal: float = 0.0
-        self.total: float = 0.0
-        self.metodo_pago: str = ""
-        self.creado_en: str = ""
-
-    def __str__(self):
-        return f"<Pedido {self.id} - {self.cliente} ({self.tipo_cliente}) - {self.estado} - Total: {self.total}>"
-    
-    # Parsing a diccionario
-    def to_dict(self) -> dict:
-        return ({
-            "id": self.id,
-            "cliente":self.cliente,
-            "tipo_cliente":self.tipo_cliente,
-            "estado":self.estado,
-            "items":self.items,
-            "subtotal":self.subtotal,
-            "total":self.total,
-            "metodo_pago":self.metodo_pago,
-            "creado_en":self.creado_en
-
-        })
-    
 class OrderBuilder:
     # Constructor
     def __init__(self):
@@ -92,9 +65,15 @@ class OrderBuilder:
         if not (self.order.cliente):
             raise ValueError("El pedido debe tener como mínimo 1 cliente")
         
-        # Si no existe un descuento, se aplica que el subtotal = total
-        if (self.order.total == 0):
-            self.order.total = self.order.subtotal
+        # Aplicar descuento según tipo de cliente
+        strategy = DiscountFactory.get_strategy(self.order.tipo_cliente)
+        self.order.total = strategy.apply_discount(self.order.subtotal)
+        self.order.descuento = self.order.subtotal - self.order.total
+        
+        # Procesar pago
+        payment = PaymentFactory.create_payment(self.order.metodo_pago)
+        if not payment.process(self.order.total):
+            raise ValueError("Error al procesar el pago")
         
         # Regresamos el pedido construido
         return self.order

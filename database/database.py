@@ -64,6 +64,14 @@ class Database(metaclass=DatabaseMetaClass):
             if (element["id"] == order_id):
                 return element
 
+    # Actualizar pedido
+    def update_order(self, order_id: str, updated_order: dict) -> bool:
+        for i, element in enumerate(self.__order_buffer):
+            if element["id"] == order_id:
+                self.__order_buffer[i] = updated_order
+                return True
+        return False
+
     # Añadir productos      
     def add_products(self, product:dict) -> bool:
         products_keys = ["nombre","precio","categoria" ]
@@ -73,19 +81,19 @@ class Database(metaclass=DatabaseMetaClass):
             return False
         
         # Asignamos el ID
-        product["id"] = f"p{len(self.__products_buffer)}"
+        product["id"] = f"p{len(self.__products_buffer) + 1:03d}"
         self.__products_buffer.append(product)
         print("EXITO: SE HA AÑADIDO EL PRODUCTO")
         return True
 
     # Añadir pedidos    
     def add_orders(self,order:dict) -> bool:
-        order_keys = ["id", "cliente", "tipo_cliente", "estado","items","subtotal","descuento","total", "metodo_pago", "creado_en"]
+        order_keys = ["cliente", "tipo_cliente", "estado","items","subtotal","descuento","total", "metodo_pago", "creado_en"]
         if not(self._validate_keys(order, order_keys)):
             print("ERROR: EL FORMATO NO ES CORRECTO ")
             return False
         
-        order["id"] = f"p{len(self.__order_buffer)}"
+        order["id"] = f"ord-{len(self.__order_buffer) + 1:03d}"
         self.__order_buffer.append(order)
         print("EXITO: SE HA AÑADIDO EL PEDIDO")
         return True

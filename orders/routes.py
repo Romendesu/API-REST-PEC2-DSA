@@ -2,6 +2,9 @@
 from flask import Blueprint, abort, request
 from utils.response import ResponseFactory
 from orders.create_orders import OrderBuilder
+from orders.order import Order
+from orders.observer import AlmacenObserver, ClienteObserver, FacturacionObserver
+from orders.export_decorator import ExporterFactory
 from database.database import db
 
 # Definicion de modulos a emplear
@@ -25,27 +28,83 @@ def get_orders():
     
 @orders.route("/<id>", methods=["GET"])
 def get_order(id):
-    return("Datos del pedido: " + id)
+    try:
+        order = db.get_specific_order(id)
+        if (order):
+            return ResponseFactory.ok(order)
+        return ResponseFactory.error("No existe el pedido")
+    except Exception as e:
+        return ResponseFactory.conflict(f"Se ha producido una excepcion: {e}")
 
 @orders.route("/<id>/exportar", methods=["GET"])
 def export_data(id):
-    format = request.args.get("formato")
-    match (format):
-        case "json":
-            return("Exportando en formato JSON del pedido: ",id)
-        case "text":
-            return("Exportando en texto plano del pedido: ",id)
-        case _:
-            abort(500)
+    format_type = request.args.get("formato")
+    try:
+        order_dict = db.get_specific_order(id)
+        if not order_dict:
+            return ResponseFactory.error("No existe el pedido")
+        
+        exporter = ExporterFactory.get_exporter(format_type)
+        exported_data = exporter.export(order_dict)
+        return ResponseFactory.ok(exported_data)
+    except Exception as e:
+        return ResponseFactory.error(f"Error al exportar: {e}")
 
 # Rutas PUT
 @orders.route("/<id>/avanzar", methods=["PUT"])
 def update_product_state(id):
-    return("Pasando al siguiente estado del producto: " + id)
+    try:
+        order_dict = db.get_specific_order(id)
+        if not order_dict:
+            return ResponseFactory.error("No existe el pedido")
+        
+        # Convertir a objeto Order
+        order = Order.from_dict(order_dict)
+        
+        # Añadir observadores
+        order.add_observer(ClienteObserver())
+        order.add_observer(AlmacenObserver())
+        order.add_observer(FacturacionObserver())
+        
+        # Avanzar estado
+        order.advance()
+        
+        # Actualizar en DB
+        updated_dict = order.to_dict()
+        db.update_order(id, updated_dict)
+        
+        return ResponseFactory.ok(updated_dict)
+        
+    except Exception as e:
+        return ResponseFactory.conflict(f"Se ha producido una excepcion: {e}")
+    
 
 @orders.route("/<id>/cancelar", methods=["PUT"])
 def delete_product(id):
-    return("Cancelando el pedido...")
+    try:
+        order_dict = db.get_specific_order(id)
+        if not order_dict:
+            return ResponseFactory.error("No existe el pedido")
+        
+        # Convertir a objeto Order
+        order = Order.from_dict(order_dict)
+        
+        # Añadir observadores
+        order.add_observer(ClienteObserver())
+        order.add_observer(AlmacenObserver())
+        order.add_observer(FacturacionObserver())
+        
+        # Cancelar pedido
+        order.cancel()
+        
+        # Actualizar en DB
+        updated_dict = order.to_dict()
+        db.update_order(id, updated_dict)
+        
+        return ResponseFactory.ok(updated_dict)
+        
+    except Exception as e:
+        return ResponseFactory.conflict(f"Se ha producido una excepcion: {e}")
 
 # RUTAS POST
 @orders.route("/", methods=["POST"])
@@ -54,9 +113,8 @@ def add_orders():
     try:
         builder = OrderBuilder()
         # Agregar el tipo de cliente y el metodo de pago
-        builder.set_id(f"ord-f{db.length_orders()}")
         builder.set_cliente(data["cliente"], data.get("tipo_cliente"))
-        builder.set_metodo_pago(data.get("metodo_pago"))            # De momento...
+        builder.set_metodo_pago(data.get("metodo_pago"))            
 
         # Agregar productos
         for item in data.get("items", []):
@@ -72,17 +130,16 @@ def add_orders():
         builder.set_creado_en()
 
         # Construimos el pedido
-        final_order = builder.build().to_dict()
+        final_order = builder.build()
 
-        # Añadir los campos obligatorios si aún no existen
-        if "descuento" not in final_order:
-            final_order["descuento"] = 0.0
-        if "total" not in final_order:
-            final_order["total"] = final_order["subtotal"]
+        # Registrar observers
+        final_order.add_observer(ClienteObserver())
+        final_order.add_observer(AlmacenObserver())
+        final_order.add_observer(FacturacionObserver())
 
-        # Añadir el pedido a la base de datos
-        db.add_orders(final_order)
-        return ResponseFactory.ok(final_order)
+        order_dict = final_order.to_dict()
+        db.add_orders(order_dict)
+        return ResponseFactory.ok(order_dict)
     
     # En caso de error:
     except Exception as e:
